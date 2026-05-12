@@ -2,9 +2,13 @@ import SwiftUI
 
 /// 宠物视图 - 显示宠物形象、处理交互（点击、拖拽）
 struct PetView: View {
+    // MARK: - 设置模型
+    @ObservedObject var settings: SettingsModel
+
     // MARK: - 回调闭包
     let onClose: () -> Void
     let onHide: () -> Void
+    let onSettings: () -> Void
     let onDragStart: () -> Void
     let onDragChange: (CGFloat, CGFloat) -> Void
     let onDragEnd: () -> Void
@@ -14,20 +18,6 @@ struct PetView: View {
     @State private var greeting = ""
     @State private var petOffset: CGFloat = 0
     @State private var isDragging = false
-
-    // MARK: - 打招呼语句列表
-    let greetings = [
-        "你好呀！😊",
-        "今天心情不错！☀️",
-        "陪我玩一会儿吧~",
-        "主人好！🐾",
-        "喵~ 想我了吗？",
-        "天气真好呀！🌈",
-        "今天也要加油哦！💪",
-        "饿了... 有小鱼干吗？🐟",
-        "嘿嘿，见到你真开心！",
-        "要不要一起发呆？"
-    ]
 
     // MARK: - 视图主体
     var body: some View {
@@ -47,8 +37,8 @@ struct PetView: View {
                     .frame(width: 70, height: 70)
                     .offset(y: 5)
 
-                // 宠物表情（猫脸emoji）
-                Text("🐱")
+                // 宠物表情（从设置中读取）
+                Text(settings.petEmoji)
                     .font(.system(size: 70))
                     .offset(y: isDragging ? 0 : petOffset)
                     .animation(
@@ -76,6 +66,8 @@ struct PetView: View {
             )
             // 右键菜单
             .contextMenu {
+                Button("设置...") { onSettings() }
+                Divider()
                 Button("隐藏") { onHide() }
                 Button("退出") { onClose() }
             }
@@ -96,7 +88,7 @@ struct PetView: View {
 
     /// 显示随机打招呼对话框
     private func showGreeting() {
-        greeting = greetings.randomElement() ?? "你好！"
+        greeting = settings.greetings.randomElement() ?? "你好！"
         withAnimation(.spring(response: 0.3)) {
             showDialog = true
         }

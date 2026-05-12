@@ -1,13 +1,17 @@
 import SwiftUI
 
 /// AppDelegate - 管理应用生命周期、窗口和状态栏
-class AppDelegate: NSObject, NSApplicationDelegate {
+class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     /// 宠物窗口实例
     var petWindow: NSWindow?
+    /// 设置窗口实例
+    var settingsWindow: NSWindow?
     /// 状态栏图标
     var statusItem: NSStatusItem?
     /// 宠物隐藏状态
     var isHidden = false
+    /// 全局设置模型（宠物窗口和设置窗口共享）
+    let settingsModel = SettingsModel()
 
     /// 应用启动完成回调
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -75,6 +79,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         menu.addItem(NSMenuItem.separator())
 
+        let settingsItem = NSMenuItem(title: "设置...", action: #selector(openSettings), keyEquivalent: ",")
+        settingsItem.target = self
+        menu.addItem(settingsItem)
+
+        menu.addItem(NSMenuItem.separator())
+
         let quitItem = NSMenuItem(title: "退出", action: #selector(quitApp), keyEquivalent: "")
         quitItem.target = self
         menu.addItem(quitItem)
@@ -104,6 +114,33 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.terminate(nil)
     }
 
+    @objc func openSettings() {
+        if let existing = settingsWindow {
+            existing.makeKeyAndOrderFront(nil)
+            NSApplication.shared.activate(ignoringOtherApps: true)
+            return
+        }
+
+        let settingsView = SettingsView(settings: settingsModel)
+        let hostingController = NSHostingController(rootView: settingsView)
+
+        let window = NSWindow(
+            contentRect: NSRect(x: 0, y: 0, width: 420, height: 500),
+            styleMask: [.titled, .closable, .miniaturizable],
+            backing: .buffered,
+            defer: false
+        )
+        window.contentViewController = hostingController
+        window.title = "桌宠设置"
+        window.center()
+        window.isReleasedWhenClosed = false
+        window.delegate = self
+
+        settingsWindow = window
+        window.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+
     @objc func screenDidChange() {
         if !isHidden {
             positionWindowToBottomRight()
@@ -115,8 +152,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     /// 设置宠物窗口
     private func setupPetWindow() {
         let petView = PetView(
+            settings: settingsModel,
             onClose: { [weak self] in self?.quitApp() },
             onHide: { [weak self] in self?.hidePet() },
+            onSettings: { [weak self] in self?.openSettings() },
             onDragStart: { [weak self] in self?.onDragStart() },
             onDragChange: { [weak self] dx, dy in self?.onDragChange(dx: dx, dy: dy) },
             onDragEnd: { [weak self] in
@@ -191,7 +230,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        // 计算鼠标在屏幕坐标中的位移增量
         let deltaX = currentMouse.x - previous.x
         let deltaY = currentMouse.y - previous.y
         previousMouseLocation = currentMouse
@@ -199,16 +237,29 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // 忽略微小移动（避免无意义的更新）
         guard abs(deltaX) > 0.01 || abs(deltaY) > 0.01 else { return }
 
-        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
         let windowSize = window.frame.size
 
-        // 鼠标和窗口都在同一屏幕坐标系（Y轴向上），无需翻转
+        // 鼠标和窗口都在全局屏幕坐标系（Y轴向上），无需翻转
         var newX = window.frame.origin.x + deltaX
         var newY = window.frame.origin.y + deltaY
 
-        // 边界检查：确保窗口在屏幕可见范围内
-        newX = max(screenFrame.origin.x, min(newX, screenFrame.origin.x + screenFrame.width - windowSize.width))
-        newY = max(screenFrame.origin.y, min(newY, screenFrame.origin.y + screenFrame.height - windowSize.height))
+        // 仅确保窗口至少部分可见于任意屏幕，不锁定在单一屏幕内
+        var anyScreenContains = false
+        for screen in NSScreen.screens {
+            let s = screen.visibleFrame
+            let windowRect = NSRect(x: newX, y: newY, width: windowSize.width, height: windowSize.height)
+            if windowRect.intersects(s) {
+                anyScreenContains = true
+                break
+            }
+        }
+
+        // 若窗口完全脱离所有屏幕，弹回最近屏幕可见范围
+        if !anyScreenContains, let nearest = screenForWindow() {
+            let s = nearest.visibleFrame
+            newX = max(s.origin.x, min(newX, s.origin.x + s.width - windowSize.width))
+            newY = max(s.origin.y, min(newY, s.origin.y + s.height - windowSize.height))
+        }
 
         window.setFrameOrigin(NSPoint(x: newX, y: newY))
     }
@@ -227,7 +278,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
 
-        let screenFrame = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
+        // 获取窗口当前所在的屏幕（而非默认主屏幕）
+        let currentScreen = screenForWindow()
+        let screenFrame = currentScreen?.visibleFrame ?? NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1920, height: 1080)
         let windowSize = window.frame.size
         let currentX = window.frame.origin.x
         let currentY = window.frame.origin.y
@@ -258,5 +311,51 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else {
             print("[DesktopPet] snapToEdge: already at target, no animation needed")
         }
+    }
+
+    // MARK: - NSWindowDelegate
+
+    func windowWillClose(_ notification: Notification) {
+        if let window = notification.object as? NSWindow, window == settingsWindow {
+            settingsWindow = nil
+        }
+    }
+
+    // MARK: - 多屏辅助
+
+    /// 查找窗口中心点所在的屏幕
+    /// 若窗口中心不在任何屏幕内，则返回距离最近的屏幕
+    private func screenForWindow() -> NSScreen? {
+        guard let window = petWindow else { return nil }
+
+        let windowCenter = NSPoint(
+            x: window.frame.origin.x + window.frame.width / 2,
+            y: window.frame.origin.y + window.frame.height / 2
+        )
+
+        // 优先匹配窗口中心所在的屏幕
+        for screen in NSScreen.screens {
+            if screen.visibleFrame.contains(windowCenter) {
+                return screen
+            }
+        }
+
+        // 回退：返回距离窗口中心最近的屏幕
+        var nearestScreen: NSScreen?
+        var minDistance: CGFloat = .greatestFiniteMagnitude
+        for screen in NSScreen.screens {
+            let frame = screen.visibleFrame
+            let clampedX = max(frame.minX, min(windowCenter.x, frame.maxX))
+            let clampedY = max(frame.minY, min(windowCenter.y, frame.maxY))
+            let dx = windowCenter.x - clampedX
+            let dy = windowCenter.y - clampedY
+            let dist = sqrt(dx * dx + dy * dy)
+            if dist < minDistance {
+                minDistance = dist
+                nearestScreen = screen
+            }
+        }
+
+        return nearestScreen ?? NSScreen.main
     }
 }

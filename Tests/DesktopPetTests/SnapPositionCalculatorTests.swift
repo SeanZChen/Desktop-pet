@@ -227,4 +227,38 @@ final class SnapPositionCalculatorTests: XCTestCase {
         XCTAssertEqual(result.x, 50, "自定义padding=50，应吸附到左侧x=50")
         XCTAssertEqual(result.y, 540)
     }
+
+    // MARK: - 新增：右侧副屏场景
+
+    func testRightSideDisplaySnapsToRightEdge() {
+        // 副屏在右侧，origin=(1920, 0)，主屏为 (0,0,1920,1080)
+        // 窗口在副屏偏右位置(x=3720)，距右边缘仅20px → 应吸附右边缘
+        let result = SnapPositionCalculator.calculate(
+            screenFrameX: 1920, screenFrameY: 0,
+            screenWidth: 1920, screenHeight: 1080,
+            windowWidth: 120, windowHeight: 150,
+            currentX: 3720, currentY: 540,
+            padding: 20
+        )
+        // 距右: |3720-3700|=20, 距Dock: |540-910|=370 → 垂直边缘胜
+        XCTAssertEqual(result.x, 3700, "吸附到副屏右边缘 x=3700")
+        XCTAssertEqual(result.y, 540, "垂直位置不变")
+    }
+
+    func testUpperDisplaySnapsToTopEdge() {
+        // 上方副屏 origin=(0, 1080)（主屏在下方）
+        // 窗口在上方副屏偏顶部
+        let result = SnapPositionCalculator.calculate(
+            screenFrameX: 0, screenFrameY: 1080,
+            screenWidth: 1920, screenHeight: 1080,
+            windowWidth: 120, windowHeight: 150,
+            currentX: 960, currentY: 1150,
+            padding: 20
+        )
+        // 距上: |1150-1100|=50, 距下: |1150-1990|=840 → 选上(菜单栏)
+        // 距左: |960-20|=940, 距右: |960-1900|=940 → 平局→先选左
+        // horizontalDist(50) < verticalDist(940), 吸附顶部
+        XCTAssertEqual(result.x, 960, "水平位置不变")
+        XCTAssertEqual(result.y, 1100, "吸附到上方副屏顶部边缘")
+    }
 }
