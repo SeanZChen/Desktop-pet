@@ -19,8 +19,10 @@ DerivedData/
 
 # macOS
 .DS_Store
-*.app
-DesktopPet.iconset/
+
+# App bundle - only ignore binary and generated icon, keep Info.plist tracked
+DesktopPet.app/Contents/MacOS/DesktopPet
+DesktopPet.app/Contents/Resources/AppIcon.icns
 
 # IDE
 .vscode/
