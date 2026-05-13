@@ -32,19 +32,41 @@ struct PetView: View {
             // 宠物主体
             ZStack {
                 // 阴影/倒影效果
-                Circle()
-                    .fill(Color.black.opacity(0.15))
-                    .frame(width: 70, height: 70)
-                    .offset(y: 5)
+                if let imageData = settings.petImageData,
+                   NSImage(data: imageData) != nil {
+                    RoundedRectangle(cornerRadius: 16)
+                        .fill(Color.black.opacity(0.12))
+                        .frame(width: 68, height: 68)
+                        .offset(y: 5)
+                } else {
+                    Circle()
+                        .fill(Color.black.opacity(0.15))
+                        .frame(width: 70, height: 70)
+                        .offset(y: 5)
+                }
 
-                // 宠物表情（从设置中读取）
-                Text(settings.petEmoji)
-                    .font(.system(size: 70))
-                    .offset(y: isDragging ? 0 : petOffset)
-                    .animation(
-                        isDragging ? .none : .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
-                        value: petOffset
-                    )
+                // 优先显示自定义图片，否则显示 emoji
+                if let imageData = settings.petImageData,
+                   let nsImage = NSImage(data: imageData) {
+                    Image(nsImage: nsImage)
+                        .resizable()
+                        .aspectRatio(contentMode: .fit)
+                        .frame(width: 70, height: 70)
+                        .cornerRadius(16)
+                        .offset(y: isDragging ? 0 : petOffset)
+                        .animation(
+                            isDragging ? .none : .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
+                            value: petOffset
+                        )
+                } else {
+                    Text(settings.petEmoji)
+                        .font(.system(size: 70))
+                        .offset(y: isDragging ? 0 : petOffset)
+                        .animation(
+                            isDragging ? .none : .easeInOut(duration: 1.5).repeatForever(autoreverses: true),
+                            value: petOffset
+                        )
+                }
             }
             .frame(width: 120, height: 120)
             .background(Color.clear)
@@ -53,10 +75,6 @@ struct PetView: View {
                 if !isDragging {
                     showGreeting()
                 }
-            }
-            // 双击隐藏宠物
-            .onTapGesture(count: 2) {
-                onHide()
             }
             // 拖拽手势处理
             .gesture(

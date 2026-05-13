@@ -36,6 +36,9 @@ DesktopPet.app/Contents/Resources/AppIcon.icns
 # Test artifacts
 .xctest/
 
+# Experimental features (not tracked)
+experiments/
+
 # Compiled binary at root
 DesktopPet
 run_tests.swift
