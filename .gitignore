@@ -39,6 +39,6 @@ DesktopPet.app/Contents/Resources/AppIcon.icns
 # Experimental features (not tracked)
 experiments/
 
-# Compiled binary at root
-DesktopPet
+# Compiled binary at root (only at top level)
+/DesktopPet
 run_tests.swift
