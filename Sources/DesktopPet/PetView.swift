@@ -37,22 +37,7 @@ struct PetView: View {
             }
 
             // 宠物主体
-            let shadowSize = petSize - 2
             ZStack {
-                // 阴影/倒影效果
-                if let imageData = settings.petImageData,
-                   NSImage(data: imageData) != nil {
-                    RoundedRectangle(cornerRadius: petCornerRadius)
-                        .fill(Color.black.opacity(0.12))
-                        .frame(width: shadowSize, height: shadowSize)
-                        .offset(y: 5 * CGFloat(settings.petScale))
-                } else {
-                    Circle()
-                        .fill(Color.black.opacity(0.15))
-                        .frame(width: petSize, height: petSize)
-                        .offset(y: 5 * CGFloat(settings.petScale))
-                }
-
                 // 优先显示自定义图片，否则显示 emoji
                 if let imageData = settings.petImageData,
                    let nsImage = NSImage(data: imageData) {
@@ -99,6 +84,7 @@ struct PetView: View {
             }
         }
         .frame(minWidth: zstackSize)
+        .background(Color.clear)
         // 视图出现时初始化
         .onAppear {
             petOffset = -6

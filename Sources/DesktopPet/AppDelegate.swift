@@ -177,6 +177,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         petWindow?.contentViewController = hostingController
         petWindow?.isOpaque = false
         petWindow?.backgroundColor = .clear
+        petWindow?.hasShadow = false
+        hostingController.view.wantsLayer = true
+        hostingController.view.layer?.backgroundColor = NSColor.clear.cgColor
         petWindow?.level = .floating
         petWindow?.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         petWindow?.ignoresMouseEvents = false
